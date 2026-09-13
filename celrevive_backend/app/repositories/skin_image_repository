@@ -1,0 +1,40 @@
+import uuid
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.skin_image import SkinImage
+from app.models.customer_session import CustomerSession  # existing model
+
+
+async def create_skin_image(
+    db: AsyncSession,
+    *,
+    session_id: uuid.UUID,
+    storage_uri: str,
+    original_filename: str | None,
+    mime_type: str | None,
+    file_size_bytes: int | None,
+    image_width: int | None,
+    image_height: int | None,
+    sha256: str | None,
+) -> SkinImage:
+    skin_image = SkinImage(
+        session_id=session_id,
+        storage_uri=storage_uri,
+        original_filename=original_filename,
+        mime_type=mime_type,
+        file_size_bytes=file_size_bytes,
+        image_width=image_width,
+        image_height=image_height,
+        sha256=sha256,
+    )
+    db.add(skin_image)
+    await db.flush()  # populates image_id without committing yet
+    return skin_image
+
+
+async def mark_session_image_received(db: AsyncSession, *, session_id: uuid.UUID) -> None:
+    await db.execute(
+        update(CustomerSession)
+        .where(CustomerSession.session_id == session_id)
+        .values(session_status="IMAGE_RECEIVED", updated_at=text("CURRENT_TIMESTAMP"))
+    )
